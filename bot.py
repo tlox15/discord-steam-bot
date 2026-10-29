@@ -1,11 +1,12 @@
 import os
 import discord
+from discord import app_commands
 from discord.ext import tasks, commands
 import requests
 from flask import Flask
 import threading
 
-# Luodaan Flask-websovellus Renderin vaatimaa porttia varten
+# Luodaan Flask-websovellus Renderiä varten
 app = Flask(__name__)
 
 @app.route('/')
@@ -53,6 +54,49 @@ async def players(interaction: discord.Interaction):
         else:
             raise e
 
+@bot.tree.command(name="ping", description="Shows bot latency, stats, and current timer interval")
+async def ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
+    
+    url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={STEAM_APP_ID}"
+    try:
+        response = requests.get(url).json()
+        player_count = response["response"]["player_count"]
+    except Exception:
+        player_count = "Unavailable"
+
+    interval_seconds = check_players.seconds
+    if interval_seconds >= 3600:
+        timer_str = f"{int(interval_seconds // 3600)} hour(s)"
+    else:
+        timer_str = f"{int(interval_seconds // 60)} minute(s)"
+
+    embed = discord.Embed(title=" Bot Status & Server Info", color=discord.Color.blurple())
+    embed.add_field(name="Latency (Ping)", value=f"{latency} ms", inline=True)
+    embed.add_field(name="Current Players", value=str(player_count), inline=True)
+    embed.add_field(name="All-time Peak", value=str(all_time_peak), inline=True)
+    embed.add_field(name="Update Interval", value=timer_str, inline=True)
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="timer", description="Change how often player counts are automatically updated")
+@app_commands.choices(interval=[
+    app_commands.Choice(name="2 hours", value=120),
+    app_commands.Choice(name="1 hour", value=60),
+    app_synthetic=30 if False else 30, # clean values below
+    app_commands.Choice(name="30 minutes", value=30),
+    app_commands.Choice(name="15 minutes", value=15)
+])
+async def timer(interaction: discord.Interaction, interval: app_commands.Choice[int]):
+    minutes = interval.value
+    
+    if minutes >= 60:
+        check_players.change_interval(hours=minutes / 60)
+    else:
+        check_players.change_interval(minutes=minutes)
+        
+    await interaction.response.send_message(f"⏱️ Automated update interval changed to: **{interval.name}**", ephemeral=True)
+
 @tasks.loop(hours=1)
 async def check_players():
     global all_time_peak
@@ -82,11 +126,5 @@ async def check_players():
         except Exception as e:
             print(f"Failed to send automated message due to rate limit or error: {e}")
 
-def run_discord_bot():
-    bot.run(TOKEN)
-
-if __name__ == "__main__":
-    threading.Thread(target=run_discord_bot, daemon=True).start()
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+# Käynnistetään Discord-botti taustasäikeessä kun tiedosto ladataan
+threading.Thread(target=lambda: bot.run(TOKEN), daemon=True).start()
