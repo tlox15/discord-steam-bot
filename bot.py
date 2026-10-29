@@ -5,22 +5,27 @@ import requests
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# --- KEYTÄ VASTAAVA WEB-SERVERI RENDERIÄ VARTEN ---
-# Tämä pitää Renderin Web Servicen tyytyväisenä, jotta se ei sammuta bottia.
+# --- RENDER WEB SERVER FIX ---
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is alive and running!")
+    def log_message(self, format, *args):
+        return  # Hiljennetään turhat logimerkinnät
 
 def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
+    try:
+        port = int(os.environ.get("PORT", 10000))
+        server = HTTPServer(("0.0.0.0", port), SimpleHandler)
+        print(f"Web server successfully started on port {port}")
+        server.serve_forever()
+    except Exception as e:
+        print(f"Web server error: {e}")
 
-# Käynnistetään web-serveri omassa taustasäikeessään
+# Käynnistetään web-serveri heti taustalle
 threading.Thread(target=run_web_server, daemon=True).start()
-# --------------------------------------------------
+# -----------------------------
 
 # Haetaan salaisuudet turvallisesti ympäristömuuttujista
 TOKEN = os.getenv("TOKEN")
@@ -28,6 +33,7 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 
 intents = discord.Intents.default()
+intents.message_content = True  # Korjaa aiemman varoituksen
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 all_time_peak = 0
@@ -75,9 +81,9 @@ async def check_players():
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
-        message = f"**Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
+        message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
-            message += " **New record broken!**"
+            message += "  **New record broken!**"
             
         await channel.send(message)
         print("Player status updated to Discord automatically!")
