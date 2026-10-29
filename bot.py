@@ -5,14 +5,14 @@ import requests
 from flask import Flask
 import threading
 
-# Luodaan Flask-websovellus, joka sitoo Renderin vaatiman portin HETI käynnistyksessä
+# Luodaan Flask-websovellus Renderin vaatimaa porttia varten
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot is alive and running!"
 
-# Haetaan salaisuudet turvallisesti ympäristömuuttujista
+# Haetaan salaisuudet ympäristömuuttujista
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
@@ -45,7 +45,13 @@ async def players(interaction: discord.Interaction):
         await interaction.response.send_message(f"Error fetching data from Steam: {e}", ephemeral=True)
         return
 
-    await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
+    try:
+        await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
+    except discord.errors.HTTPException as e:
+        if e.status == 429:
+            await interaction.response.send_message(" The server IP is temporarily rate-limited by Discord. Please try again in a moment!", ephemeral=True)
+        else:
+            raise e
 
 @tasks.loop(hours=1)
 async def check_players():
@@ -70,16 +76,17 @@ async def check_players():
         if record_broken:
             message += "  **New record broken!**"
             
-        await channel.send(message)
-        print("Player status updated to Discord automatically!")
+        try:
+            await channel.send(message)
+            print("Player status updated to Discord automatically!")
+        except Exception as e:
+            print(f"Failed to send automated message due to rate limit or error: {e}")
 
 def run_discord_bot():
     bot.run(TOKEN)
 
 if __name__ == "__main__":
-    # Käynnistetään Discord-botti taustasäikeessä
     threading.Thread(target=run_discord_bot, daemon=True).start()
     
-    # Käynnistetään Flask pääsäikeessä, jotta portti löytyy välittömästi Renderin tarkistuksessa
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
