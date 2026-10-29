@@ -19,8 +19,8 @@ TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 
+# Käytetään oletusintenttejä ilman ylimääräisiä erikoislupia
 intents = discord.Intents.default()
-intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 all_time_peak = 0
@@ -29,7 +29,6 @@ all_time_peak = 0
 async def on_ready():
     print(f"Logged in as {bot.user}")
     
-    # Odotetaan hetki ennen synkronointia, jotta yhteys tasaantuu
     await asyncio.sleep(2)
     try:
         synced = await bot.tree.sync()
@@ -98,7 +97,7 @@ async def timer(interaction: discord.Interaction, interval: app_commands.Choice[
     else:
         check_players.change_interval(minutes=minutes)
         
-    await interaction.response.send_message(f" Automated update interval changed to: **{interval.name}**", ephemeral=True)
+    await interaction.response.send_message(f"⏱️ Automated update interval changed to: **{interval.name}**", ephemeral=True)
 
 @tasks.loop(hours=1)
 async def check_players():
@@ -119,7 +118,7 @@ async def check_players():
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
-        message = f"**Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
+        message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
             message += "  **New record broken!**"
             
