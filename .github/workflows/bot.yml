@@ -5,8 +5,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # Käynnistää botin uudelleen automaattisesti 6 tunnin välein
-
+      - cron: '0 * * * *'  # Käynnistää botin uudelleen joka tunti tasalta
 jobs:
   run-bot:
     runs-on: ubuntu-22.04
