@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import tasks, commands
 import requests
 from flask import Flask
+import asyncio
 import threading
 
 # Luodaan Flask-websovellus Renderiä varten
@@ -28,13 +29,16 @@ all_time_peak = 0
 async def on_ready():
     print(f"Logged in as {bot.user}")
     
+    # Odotetaan hetki ennen synkronointia, jotta yhteys tasaantuu
+    await asyncio.sleep(2)
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands.")
+        print(f"Synced {len(synced)} slash commands successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
         
-    check_players.start()
+    if not check_players.is_running():
+        check_players.start()
 
 @bot.tree.command(name="players", description="Shows the current player count of Space Simulation Toolkit")
 async def players(interaction: discord.Interaction):
@@ -50,7 +54,7 @@ async def players(interaction: discord.Interaction):
         await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
     except discord.errors.HTTPException as e:
         if e.status == 429:
-            await interaction.response.send_message(" The server IP is temporarily rate-limited by Discord. Please try again in a moment!", ephemeral=True)
+            await interaction.response.send_message("⚠️ The server IP is temporarily rate-limited by Discord. Please try again in a moment!", ephemeral=True)
         else:
             raise e
 
@@ -94,7 +98,7 @@ async def timer(interaction: discord.Interaction, interval: app_commands.Choice[
     else:
         check_players.change_interval(minutes=minutes)
         
-    await interaction.response.send_message(f"⏱️ Automated update interval changed to: **{interval.name}**", ephemeral=True)
+    await interaction.response.send_message(f" Automated update interval changed to: **{interval.name}**", ephemeral=True)
 
 @tasks.loop(hours=1)
 async def check_players():
@@ -115,7 +119,7 @@ async def check_players():
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
-        message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
+        message = f"**Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
             message += "  **New record broken!**"
             
