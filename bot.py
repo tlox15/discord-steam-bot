@@ -2,30 +2,15 @@ import os
 import discord
 from discord.ext import tasks, commands
 import requests
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from flask import Flask
 import threading
 
-# --- RENDER WEB SERVER FIX ---
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is alive and running!")
-    def log_message(self, format, *args):
-        return  # Hiljennetään turhat logimerkinnät
+# Luodaan Flask-websovellus, joka sitoo Renderin vaatiman portin HETI käynnistyksessä
+app = Flask(__name__)
 
-def run_web_server():
-    try:
-        port = int(os.environ.get("PORT", 10000))
-        server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-        print(f"Web server successfully started on port {port}")
-        server.serve_forever()
-    except Exception as e:
-        print(f"Web server error: {e}")
-
-# Käynnistetään web-serveri heti taustalle
-threading.Thread(target=run_web_server, daemon=True).start()
-# -----------------------------
+@app.route('/')
+def home():
+    return "Bot is alive and running!"
 
 # Haetaan salaisuudet turvallisesti ympäristömuuttujista
 TOKEN = os.getenv("TOKEN")
@@ -33,7 +18,7 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 
 intents = discord.Intents.default()
-intents.message_content = True  # Korjaa aiemman varoituksen
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 all_time_peak = 0
@@ -88,4 +73,13 @@ async def check_players():
         await channel.send(message)
         print("Player status updated to Discord automatically!")
 
-bot.run(TOKEN)
+def run_discord_bot():
+    bot.run(TOKEN)
+
+if __name__ == "__main__":
+    # Käynnistetään Discord-botti taustasäikeessä
+    threading.Thread(target=run_discord_bot, daemon=True).start()
+    
+    # Käynnistetään Flask pääsäikeessä, jotta portti löytyy välittömästi Renderin tarkistuksessa
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
