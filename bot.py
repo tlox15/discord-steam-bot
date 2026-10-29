@@ -14,11 +14,32 @@ STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-all_time_peak = 0
+PEAK_FILE = "peak.txt"
+
+def load_peak():
+    """Lataa kaikkien aikojen ennätyksen tiedostosta."""
+    if os.path.exists(PEAK_FILE):
+        try:
+            with open(PEAK_FILE, "r") as f:
+                return int(f.read().strip())
+        except Exception:
+            return 0
+    return 0
+
+def save_peak(peak):
+    """Tallentaa uuden ennätyksen tiedostoon."""
+    try:
+        with open(PEAK_FILE, "w") as f:
+            f.write(str(peak))
+    except Exception as e:
+        print(f"Error saving peak file: {e}")
+
+all_time_peak = load_peak()
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    print(f"Loaded all-time peak: {all_time_peak}")
     
     await asyncio.sleep(2)
     try:
@@ -41,7 +62,7 @@ async def players(interaction: discord.Interaction):
         return
 
     try:
-        await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
+        await interaction.response.send_message(f"**Space Simulation Toolkit** current players: **{player_count}**")
     except discord.errors.HTTPException as e:
         if e.status == 429:
             await interaction.response.send_message("⚠️ The server IP is temporarily rate-limited by Discord. Please try again in a moment!", ephemeral=True)
@@ -65,7 +86,7 @@ async def ping(interaction: discord.Interaction):
     else:
         timer_str = f"{int(interval_seconds // 60)} minute(s)"
 
-    embed = discord.Embed(title=" Bot Status & Server Info", color=discord.Color.blurple())
+    embed = discord.Embed(title="Bot Status & Server Info", color=discord.Color.blurple())
     embed.add_field(name="Latency (Ping)", value=f"{latency} ms", inline=True)
     embed.add_field(name="Current Players", value=str(player_count), inline=True)
     embed.add_field(name="All-time Peak", value=str(all_time_peak), inline=True)
@@ -105,13 +126,14 @@ async def check_players():
     record_broken = False
     if player_count > all_time_peak:
         all_time_peak = player_count
+        save_peak(all_time_peak)  # Tallennetaan uusi ennätys tiedostoon
         record_broken = True
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
         message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
-            message += "  **New record broken!**"
+            message += "  **New record broken**"
             
         try:
             await channel.send(message)
