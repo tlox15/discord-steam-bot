@@ -83,7 +83,6 @@ async def ping(interaction: discord.Interaction):
 @app_commands.choices(interval=[
     app_commands.Choice(name="2 hours", value=120),
     app_commands.Choice(name="1 hour", value=60),
-    app_synthetic=30 if False else 30, # clean values below
     app_commands.Choice(name="30 minutes", value=30),
     app_commands.Choice(name="15 minutes", value=15)
 ])
@@ -126,5 +125,5 @@ async def check_players():
         except Exception as e:
             print(f"Failed to send automated message due to rate limit or error: {e}")
 
-# Käynnistetään Discord-botti taustasäikeessä kun tiedosto ladataan
+# Käynnistetään Discord-botti taustasäikeessä
 threading.Thread(target=lambda: bot.run(TOKEN), daemon=True).start()
