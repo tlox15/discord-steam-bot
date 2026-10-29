@@ -3,12 +3,12 @@ import discord
 from discord.ext import tasks, commands
 import requests
 
-# Haetaan salaisuudet turvallisesti ympäristömuuttujista
+# Fetch secrets securely from environment variables
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 
-# Käytetään komentoja tukevaa bottia (vaaditaan slash-komentoihin)
+# Use a bot instance that supports commands (required for slash commands)
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -16,32 +16,32 @@ all_time_peak = 0
 
 @bot.event
 async def on_ready():
-    print(f"Kirjauduttiin sisään nimellä {bot.user}")
+    print(f"Logged in as {bot.user}")
     
-    # Synkronoidaan slash-komennot Discordiin, jotta ne ilmestyvät näkyviin
+    # Sync slash commands to Discord so they appear
     try:
         synced = await bot.tree.sync()
-        print(f"Synronoitu {len(synced)} slash-komentoa.")
+        print(f"Synced {len(synced)} slash commands.")
     except Exception as e:
-        print(f"Error initializing commands: {e}")
+        print(f"Error syncing commands: {e}")
         
-    # Käynnistetään tunnin välein pyörivä automaattipäivitys
+    # Start the automated background task running every hour
     check_players.start()
 
-# Luodaan slash-komento /pelaajat
-@bot.tree.command(name="pelaajat", description="Current player amount")
-async def pelaajat(interaction: discord.Interaction):
+# Create the slash command /players
+@bot.tree.command(name="players", description="Shows the current player count of Space Simulation Toolkit")
+async def players(interaction: discord.Interaction):
     url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={STEAM_APP_ID}"
     try:
         response = requests.get(url).json()
         player_count = response["response"]["player_count"]
     except Exception as e:
-        await interaction.response.send_message(f"Error initializing: {e}", ephemeral=True)
+        await interaction.response.send_message(f"Error fetching data from Steam: {e}", ephemeral=True)
         return
 
-    await interaction.response.send_message(f"**Space Simulation Toolkit** Current players: **{player_count}**")
+    await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
 
-# Automaattinen taustasilmukka (päivittää kanavalle tunnin välein)
+# Automated background loop (updates the channel every hour)
 @tasks.loop(hours=1)
 async def check_players():
     global all_time_peak
@@ -51,7 +51,7 @@ async def check_players():
         response = requests.get(url).json()
         player_count = response["response"]["player_count"]
     except Exception as e:
-        print(f"Virhe haettaessa Steam-tietoja: {e}")
+        print(f"Error fetching Steam data: {e}")
         return
 
     record_broken = False
@@ -61,11 +61,11 @@ async def check_players():
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
-        message = f"**Space Simulation Toolkit** Info:\n• Current players: **{player_count}**\n• Highest recorded: **{all_time_peak}**"
+        message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
-            message += " **Record broken**"
+            message += "  **New record broken**"
             
         await channel.send(message)
-        print("Pelaajatilanne päivitetty Discordiin automaattisesti!")
+        print("Status updated")
 
 bot.run(TOKEN)
