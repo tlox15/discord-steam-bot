@@ -3,16 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import tasks, commands
 import requests
-from flask import Flask
 import asyncio
-import threading
-
-# Luodaan Flask-websovellus Renderiä varten
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is alive and running!"
 
 # Haetaan salaisuudet ympäristömuuttujista
 TOKEN = os.getenv("TOKEN")
@@ -128,5 +119,6 @@ async def check_players():
         except Exception as e:
             print(f"Failed to send automated message due to rate limit or error: {e}")
 
-# Käynnistetään Discord-botti taustasäikeessä
-threading.Thread(target=lambda: bot.run(TOKEN), daemon=True).start()
+# Käynnistetään botti suoraan
+if __name__ == "__main__":
+    bot.run(TOKEN)
