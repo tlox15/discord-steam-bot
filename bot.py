@@ -4,13 +4,13 @@ from discord import app_commands
 from discord.ext import tasks, commands
 import requests
 import asyncio
+import subprocess
 
 # Haetaan salaisuudet ympäristömuuttujista
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 STEAM_APP_ID = "1196080"  # Space Simulation Toolkit
 
-# Käytetään oletusintenttejä ilman ylimääräisiä erikoislupia
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -26,13 +26,21 @@ def load_peak():
             return 0
     return 0
 
-def save_peak(peak):
-    """Tallentaa uuden ennätyksen tiedostoon."""
+def save_and_commit_peak(peak):
+    """Tallentaa ennätyksen tiedostoon ja lähettää sen takaisin GitHubiin, jotta se ei unohdu."""
     try:
         with open(PEAK_FILE, "w") as f:
             f.write(str(peak))
+        
+        # Git-komennot, joilla tiedosto tallennetaan pysyvästi repositorioon
+        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+        subprocess.run(["git", "add", PEAK_FILE], check=True)
+        subprocess.run(["git", "commit", "-m", f"Update all-time peak to {peak} [skip ci]"], check=True)
+        subprocess.run(["git", "push"], check=True)
+        print(f"Successfully saved and pushed new peak ({peak}) to GitHub!")
     except Exception as e:
-        print(f"Error saving peak file: {e}")
+        print(f"Error saving/pushing peak to GitHub: {e}")
 
 all_time_peak = load_peak()
 
@@ -62,10 +70,10 @@ async def players(interaction: discord.Interaction):
         return
 
     try:
-        await interaction.response.send_message(f"**Space Simulation Toolkit** current players: **{player_count}**")
+        await interaction.response.send_message(f" **Space Simulation Toolkit** current players: **{player_count}**")
     except discord.errors.HTTPException as e:
         if e.status == 429:
-            await interaction.response.send_message("⚠️ The server IP is temporarily rate-limited by Discord. Please try again in a moment!", ephemeral=True)
+            await interaction.response.send_message(" Rate-limited by Discord. Please try again later!", ephemeral=True)
         else:
             raise e
 
@@ -86,7 +94,7 @@ async def ping(interaction: discord.Interaction):
     else:
         timer_str = f"{int(interval_seconds // 60)} minute(s)"
 
-    embed = discord.Embed(title="Bot Status & Server Info", color=discord.Color.blurple())
+    embed = discord.Embed(title=" Bot Status & Server Info", color=discord.Color.blurple())
     embed.add_field(name="Latency (Ping)", value=f"{latency} ms", inline=True)
     embed.add_field(name="Current Players", value=str(player_count), inline=True)
     embed.add_field(name="All-time Peak", value=str(all_time_peak), inline=True)
@@ -126,14 +134,14 @@ async def check_players():
     record_broken = False
     if player_count > all_time_peak:
         all_time_peak = player_count
-        save_peak(all_time_peak)  # Tallennetaan uusi ennätys tiedostoon
+        save_and_commit_peak(all_time_peak)  # Tallentaa JA työntää suoraan GitHubiin asti!
         record_broken = True
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
         message = f" **Space Simulation Toolkit** player status:\n• Current players: **{player_count}**\n• All-time peak: **{all_time_peak}**"
         if record_broken:
-            message += "  **New record broken**"
+            message += "  **New record broken!**"
             
         try:
             await channel.send(message)
@@ -141,6 +149,5 @@ async def check_players():
         except Exception as e:
             print(f"Failed to send automated message due to rate limit or error: {e}")
 
-# Käynnistetään botti suoraan
 if __name__ == "__main__":
     bot.run(TOKEN)
